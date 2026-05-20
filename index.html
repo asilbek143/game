@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>NEON SIEGE — Online Multiplayer</title>
+<title>NEON SIEGE — Online Ko'p O'yinchi</title>
 
 <!-- ============================================================
   ███╗   ██╗███████╗ ██████╗ ███╗   ██╗    ███████╗██╗███████╗ ██████╗ ███████╗
@@ -34,18 +34,15 @@
 //  FIREBASE CONFIGURATION — REPLACE THIS OBJECT WITH YOURS
 // ══════════════════════════════════════════════════════════════
 const FIREBASE_CONFIG = {
-  // ── Configured for project: games-31994 ──
-  // databaseURL confirmed: https://games-31994-default-rtdb.firebaseio.com/
-  // ⚠️  apiKey, appId, messagingSenderId — paste from Firebase Console
-  //     Project Settings → Your Apps → SDK setup and configuration
-  //     (these are safe public identifiers, not secrets)
-  apiKey:            "PASTE_YOUR_API_KEY_HERE",
+  // ✅ games-31994 — TO'LIQ SOZLANGAN
+  apiKey:            "AIzaSyAuMAGdIGvxltNVz4m18pN2ncvb5KLAk8o",
   authDomain:        "games-31994.firebaseapp.com",
   databaseURL:       "https://games-31994-default-rtdb.firebaseio.com",
   projectId:         "games-31994",
-  storageBucket:     "games-31994.appspot.com",
-  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID_HERE",
-  appId:             "PASTE_YOUR_APP_ID_HERE",
+  storageBucket:     "games-31994.firebasestorage.app",
+  messagingSenderId: "222545973909",
+  appId:             "1:222545973909:web:6f0e2956ee6289a8b2819c",
+  measurementId:     "G-HCNZ2SX58P",
 };
 // ══════════════════════════════════════════════════════════════
 
@@ -134,6 +131,7 @@ let currentRoomId = null;
 let roomRef = null;
 let pingMs = 0;
 let lastPingSent = 0;
+let isMultiplayerRoom = false; // true bo'lsa botlar yo'q
 
 const canvas = document.getElementById('gc');
 const ctx = canvas.getContext('2d');
@@ -251,6 +249,7 @@ function spawnBots(count) {
 }
 
 function updateBots() {
+  if(isMultiplayerRoom) return; // MULTIPLAYER O'YINDA BOTLAR YO'Q
   for(let i=bots.length-1;i>=0;i--) {
     const bot=bots[i];
     if(bot.dead) continue;
@@ -395,6 +394,8 @@ function assignColor() { return PLAYER_COLORS[(colorIndex++)%PLAYER_COLORS.lengt
 // ── JOIN ROOM ─────────────────────────────────────────────────
 async function joinRoom(roomId) {
   if(!firebaseOK) { startOfflineGame(); return; }
+  isMultiplayerRoom = true;  // MULTIPLAYER — BOTLAR YO'Q
+  bots = [];                  // Barcha botlarni tozalash
   currentRoomId=roomId;
   myId=generateId();
   roomRef=ref(db,`rooms/${roomId}`);
@@ -420,9 +421,7 @@ async function joinRoom(roomId) {
   generateMap();
   initPlayer();
   cam.x=player.x; cam.y=player.y;
-  const realCount=await getRealPlayerCount(roomId);
-  const botCount=Math.max(0,settings.botCount-(realCount-1));
-  spawnBots(botCount);
+  // MULTIPLAYER O'YINDA BOTLAR YO'Q — faqat real o'yinchilar
   kills=0; ammo=CFG.MAG_SIZE; isReloading=false; fireCooldown=0;
   gameState='playing'; gameRunning=true;
   updateAmmoUI(); updateHealthUI();
@@ -461,11 +460,7 @@ function listenRoom(roomId) {
     });
     // Remove disconnected players
     Object.keys(remotePlayers).forEach(id=>{ if(!data[id]) { delete remotePlayers[id]; updateLeaderboard(); } });
-    // Adjust bots
-    const realCount=Object.keys(data).length;
-    const wantedBots=Math.max(0,settings.botCount-(realCount-1));
-    while(bots.length>wantedBots) bots.pop();
-    while(bots.length<wantedBots) bots.push(spawnBot(bots.length));
+    // MULTIPLAYER'DA BOTLAR YO'Q
   });
 
   // Remote bullets
@@ -553,10 +548,10 @@ async function fetchRooms() {
   if(!firebaseOK) return;
   if(serverListListener) off(ref(db,'rooms'),serverListListener);
   const listEl=document.getElementById('server-list');
-  listEl.innerHTML='<div class="sl-loading">Scanning servers...</div>';
+  listEl.innerHTML='<div class="sl-loading">Serverlar qidirilmoqda...</div>';
   onValue(ref(db,'rooms'),(snap)=>{
     listEl.innerHTML='';
-    if(!snap.exists()){ listEl.innerHTML='<div class="sl-empty">No servers found. Create one!</div>'; return; }
+    if(!snap.exists()){ listEl.innerHTML='<div class="sl-empty">Server topilmadi. Yangi yarating!</div>'; return; }
     const rooms=snap.val();
     let count=0;
     Object.entries(rooms).forEach(([id,room])=>{
@@ -564,26 +559,26 @@ async function fetchRooms() {
       const playerCount=room.meta.players?Object.keys(room.meta.players).length:0;
       if(playerCount===0){ remove(ref(db,`rooms/${id}`)); return; }
       count++;
-      const status=playerCount>=CFG.MAX_PLAYERS?'FULL':'OPEN';
+      const status=playerCount>=CFG.MAX_PLAYERS?"TO'LIQ":"OCHIQ";
       const statusColor=status==='FULL'?'#ff2244':'#39ff14';
       const row=document.createElement('div');
       row.className='server-row';
       row.innerHTML=`
         <div class="sr-name">${escHtml(room.meta.name||'ARENA')}</div>
-        <div class="sr-host">Host: ${escHtml(room.meta.host||'?')}</div>
+        <div class="sr-host">Xo'jayin: ${escHtml(room.meta.host||'?')}</div>
         <div class="sr-players"><span style="color:${statusColor}">${playerCount}/${CFG.MAX_PLAYERS}</span></div>
         <div class="sr-status" style="color:${statusColor}">${status}</div>
-        <button class="menu-btn join-btn" data-id="${id}" ${playerCount>=CFG.MAX_PLAYERS?'disabled':''}>JOIN</button>
+        <button class="menu-btn join-btn" ${playerCount>=CFG.MAX_PLAYERS?'disabled':''}>KIRISH</button>
       `;
       row.querySelector('.join-btn').addEventListener('click',()=>{ if(playerCount<CFG.MAX_PLAYERS) promptNickThenJoin(id); });
       listEl.appendChild(row);
     });
-    if(count===0) listEl.innerHTML='<div class="sl-empty">No servers found. Create one!</div>';
+    if(count===0) listEl.innerHTML='<div class="sl-empty">Server topilmadi. Yangi yarating!</div>';
   });
 }
 
 async function createRoom() {
-  if(!firebaseOK){ alert('Firebase not configured. Please add your Firebase config.'); return; }
+  if(!firebaseOK){ alert('Firebase sozlanmagan. Faylning yuqorisidagi sozlamalarni kiriting.'); return; }
   const name=document.getElementById('room-name-input').value.trim()||'NEON ARENA';
   const rRef=push(ref(db,'rooms'));
   const newRoomId=rRef.key;
@@ -601,6 +596,7 @@ function promptNickThenJoin(roomId) {
 }
 
 function startOfflineGame() {
+  isMultiplayerRoom = false; // Solo — botlar ishlaydi
   generateMap(); initPlayer();
   cam.x=player.x; cam.y=player.y;
   spawnBots(settings.botCount);
@@ -744,7 +740,7 @@ function eliminateBot(idx) {
   if(firebaseOK&&currentRoomId&&myId)
     update(ref(db,`rooms/${currentRoomId}/players/${myId}`),{ kills });
   showKillScreen(); updateLeaderboard();
-  setTimeout(()=>{ if(gameRunning) bots.push(spawnBot(bots.length)); },4000);
+  setTimeout(()=>{ if(gameRunning&&!isMultiplayerRoom) bots.push(spawnBot(bots.length)); },4000);
 }
 
 function killPlayer() {
@@ -890,7 +886,7 @@ function drawPlayer() {
   ctx.restore();
   // Name
   ctx.fillStyle='rgba(0,245,255,0.95)'; ctx.font=`bold ${11*cam.zoom}px Rajdhani`;
-  ctx.textAlign='center'; ctx.fillText(myNick||'YOU',sp.x,sp.y-r-8);
+  ctx.textAlign='center'; ctx.fillText(myNick||'SIZ',sp.x,sp.y-r-8);
 }
 
 function drawEntity(ent, color, nick, isRemote=false) {
@@ -1028,8 +1024,8 @@ function flashDamage() {
 }
 function updateLeaderboard() {
   const all=[
-    { name:myNick||'YOU',kills,isYou:true },
-    ...bots.map(b=>({ name:b.name,kills:b.kills+Math.floor(Math.random()*2),isYou:false })),
+    { name:myNick||'SIZ',kills,isYou:true },
+    ...(isMultiplayerRoom?[]:bots.map(b=>({ name:b.name,kills:b.kills,isYou:false }))),
     ...Object.values(remotePlayers).filter(r=>!r.dead).map(r=>({ name:r.nick||'?',kills:r.kills||0,isYou:false })),
   ].sort((a,b)=>b.kills-a.kills).slice(0,7);
   document.getElementById('lb-list').innerHTML=all.map((e,i)=>
@@ -1121,7 +1117,7 @@ document.getElementById('btn-create').addEventListener('click',()=>{
   document.getElementById('panel-create').style.display='block';
 });
 document.getElementById('btn-create-confirm').addEventListener('click',()=>{
-  if(!firebaseOK){ alert('Firebase not configured. Check the top of the file and paste your Firebase config.'); return; }
+  if(!firebaseOK){ alert('Firebase sozlanmagan. Faylning yuqorisidagi sozlamalarni to\'ldiring.'); return; }
   if(!myNick){ showNickPrompt(createRoom); return; }
   createRoom();
 });
@@ -1136,7 +1132,7 @@ document.getElementById('bot-slider').addEventListener('input',e=>{ settings.bot
 document.getElementById('shake-toggle').addEventListener('change',e=>settings.screenShake=e.target.checked);
 document.getElementById('btn-respawn-skip').addEventListener('click',()=>{ if(respawnTimer){ clearInterval(respawnTimer); respawn(); } });
 document.getElementById('btn-menu-leave').addEventListener('click',()=>{
-  gameRunning=false; gameState='menu';
+  gameRunning=false; gameState='menu'; isMultiplayerRoom=false;
   if(currentRoomId&&myId&&firebaseOK) remove(ref(db,`rooms/${currentRoomId}/players/${myId}`));
   currentRoomId=null; myId=null; remotePlayers={}; bots=[]; bullets=[]; particles=[]; dynWalls={};
   document.getElementById('respawn-overlay').style.display='none';
@@ -1151,24 +1147,116 @@ document.getElementById('btn-menu-leave').addEventListener('click',()=>{
 (()=>{
   const mc=document.getElementById('mc');
   const mctx=mc.getContext('2d');
-  let mps=[];
-  function resizeMC(){ mc.width=window.innerWidth; mc.height=window.innerHeight; }
+  let mps=[], hexagons=[], time=0;
+  function resizeMC(){ mc.width=window.innerWidth; mc.height=window.innerHeight; initHex(); }
   resizeMC(); window.addEventListener('resize',resizeMC);
-  for(let i=0;i<100;i++) mps.push({ x:Math.random()*mc.width,y:Math.random()*mc.height,
-    vx:(Math.random()-.5)*.5,vy:-.3-Math.random()*.5,size:1+Math.random()*2,
-    alpha:.15+Math.random()*.5,color:['#00f5ff','#39ff14','#ff7700','#bf00ff'][Math.floor(Math.random()*4)] });
+
+  // Uchuvchi zarrachalar
+  for(let i=0;i<130;i++) mps.push({
+    x:Math.random()*mc.width, y:Math.random()*mc.height,
+    vx:(Math.random()-.5)*.65, vy:-.45-Math.random()*.65,
+    size:.8+Math.random()*2.8, alpha:.1+Math.random()*.55,
+    color:['#00f5ff','#39ff14','#ff7700','#bf00ff','#ff2244'][Math.floor(Math.random()*5)],
+  });
+
+  // Olti burchakli panjara
+  function initHex(){
+    hexagons=[];
+    const size=52, w=size*2, h=Math.sqrt(3)*size;
+    for(let row=-2;row<mc.height/h+3;row++)
+      for(let col=-2;col<mc.width/w+3;col++)
+        hexagons.push({ x:col*w*0.75+(row%2===0?0:w*0.375), y:row*h, phase:Math.random()*Math.PI*2, size });
+  }
+
+  function drawHex(x,y,sz,alpha,color){
+    mctx.save(); mctx.globalAlpha=alpha; mctx.strokeStyle=color; mctx.lineWidth=0.8;
+    mctx.beginPath();
+    for(let i=0;i<6;i++){
+      const a=Math.PI/180*60*i-Math.PI/2;
+      i===0?mctx.moveTo(x+sz*Math.cos(a),y+sz*Math.sin(a)):mctx.lineTo(x+sz*Math.cos(a),y+sz*Math.sin(a));
+    }
+    mctx.closePath(); mctx.stroke(); mctx.restore();
+  }
+
   (function loop(){
-    requestAnimationFrame(loop);
+    requestAnimationFrame(loop); time+=0.009;
     mctx.clearRect(0,0,mc.width,mc.height);
-    mctx.strokeStyle='rgba(0,245,255,0.035)'; mctx.lineWidth=1;
-    for(let x=0;x<mc.width;x+=64){ mctx.beginPath(); mctx.moveTo(x,0); mctx.lineTo(x,mc.height); mctx.stroke(); }
-    for(let y=0;y<mc.height;y+=64){ mctx.beginPath(); mctx.moveTo(0,y); mctx.lineTo(mc.width,y); mctx.stroke(); }
-    const vg=mctx.createRadialGradient(mc.width/2,mc.height/2,60,mc.width/2,mc.height/2,Math.max(mc.width,mc.height)*.7);
-    vg.addColorStop(0,'transparent'); vg.addColorStop(1,'rgba(0,0,8,0.72)');
+
+    // Kosmik fon
+    const bg=mctx.createRadialGradient(mc.width/2,mc.height*0.38,0,mc.width/2,mc.height/2,Math.max(mc.width,mc.height)*0.9);
+    bg.addColorStop(0,'#001830'); bg.addColorStop(0.35,'#000e1f'); bg.addColorStop(0.7,'#000610'); bg.addColorStop(1,'#000208');
+    mctx.fillStyle=bg; mctx.fillRect(0,0,mc.width,mc.height);
+
+    // Olti burchakli panjara
+    hexagons.forEach(h=>{
+      const pulse=Math.sin(time*0.75+h.phase)*0.5+0.5;
+      const colors=['#00f5ff','#39ff14','#bf00ff'];
+      drawHex(h.x,h.y,h.size,pulse*0.058+0.008,colors[Math.floor(h.phase/(Math.PI*2/3))%3]);
+    });
+
+    // Gorizontal skanerlash chiziqlari
+    for(let y=0;y<mc.height;y+=3){
+      mctx.fillStyle=`rgba(0,0,0,${0.035+Math.sin(y*0.08+time)*0.008})`;
+      mctx.fillRect(0,y,mc.width,1);
+    }
+
+    // Yorqin gorizont chizig'i
+    const horG=mctx.createLinearGradient(0,0,mc.width,0);
+    horG.addColorStop(0,'transparent'); horG.addColorStop(0.25,'rgba(0,245,255,0.12)');
+    horG.addColorStop(0.5,`rgba(0,245,255,${0.3+Math.sin(time*0.7)*0.08})`);
+    horG.addColorStop(0.75,'rgba(0,245,255,0.12)'); horG.addColorStop(1,'transparent');
+    const hy=mc.height*0.63+Math.sin(time*0.4)*10;
+    mctx.fillStyle=horG; mctx.fillRect(0,hy,mc.width,2);
+
+    // Perspektiv grid chiziqlari gorizontga qarab
+    mctx.save(); mctx.globalAlpha=0.065;
+    const vp={x:mc.width/2,y:hy};
+    for(let i=-14;i<=14;i++){
+      const bx=vp.x+i*(mc.width/13);
+      mctx.strokeStyle='#00f5ff'; mctx.lineWidth=0.5;
+      mctx.beginPath(); mctx.moveTo(bx,mc.height); mctx.lineTo(vp.x,vp.y); mctx.stroke();
+    }
+    for(let j=0;j<12;j++){
+      const yy=hy+(mc.height-hy)*(j/12);
+      const alpha=1-(j/12)*0.7;
+      mctx.strokeStyle=`rgba(0,245,255,${alpha*0.6})`; mctx.lineWidth=0.35;
+      mctx.beginPath(); mctx.moveTo(0,yy); mctx.lineTo(mc.width,yy); mctx.stroke();
+    }
+    mctx.restore();
+
+    // Uchuvchi zarrachalar
+    for(const p of mps){
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.y<-8){ p.y=mc.height+8; p.x=Math.random()*mc.width; }
+      if(p.x<-8) p.x=mc.width+8; if(p.x>mc.width+8) p.x=-8;
+      mctx.save(); mctx.globalAlpha=p.alpha*(0.65+Math.sin(time*1.2+p.x*0.01)*0.35);
+      mctx.shadowColor=p.color; mctx.shadowBlur=10;
+      mctx.fillStyle=p.color; mctx.beginPath();
+      mctx.arc(p.x,p.y,p.size,0,Math.PI*2); mctx.fill(); mctx.restore();
+    }
+
+    // Sarlavha orqasidagi markaziy nur
+    const bloom=mctx.createRadialGradient(mc.width/2,mc.height*0.3,0,mc.width/2,mc.height*0.3,mc.width*0.45);
+    bloom.addColorStop(0,`rgba(0,245,255,${0.055+Math.sin(time*1.1)*0.025})`);
+    bloom.addColorStop(0.45,`rgba(0,80,160,${0.025+Math.sin(time*0.8)*0.012})`);
+    bloom.addColorStop(1,'transparent');
+    mctx.fillStyle=bloom; mctx.fillRect(0,0,mc.width,mc.height);
+
+    // Ikkinchi rang nuri
+    const bloom2=mctx.createRadialGradient(mc.width*0.25,mc.height*0.7,0,mc.width*0.25,mc.height*0.7,mc.width*0.3);
+    bloom2.addColorStop(0,`rgba(57,255,20,${0.025+Math.sin(time*0.6+1)*0.012})`);
+    bloom2.addColorStop(1,'transparent');
+    mctx.fillStyle=bloom2; mctx.fillRect(0,0,mc.width,mc.height);
+
+    const bloom3=mctx.createRadialGradient(mc.width*0.75,mc.height*0.75,0,mc.width*0.75,mc.height*0.75,mc.width*0.28);
+    bloom3.addColorStop(0,`rgba(191,0,255,${0.022+Math.sin(time*0.5+2)*0.01})`);
+    bloom3.addColorStop(1,'transparent');
+    mctx.fillStyle=bloom3; mctx.fillRect(0,0,mc.width,mc.height);
+
+    // Qorong'i kran
+    const vg=mctx.createRadialGradient(mc.width/2,mc.height/2,mc.height*0.1,mc.width/2,mc.height/2,Math.max(mc.width,mc.height)*0.82);
+    vg.addColorStop(0,'transparent'); vg.addColorStop(1,'rgba(0,0,6,0.88)');
     mctx.fillStyle=vg; mctx.fillRect(0,0,mc.width,mc.height);
-    for(const p of mps){ p.x+=p.vx; p.y+=p.vy; if(p.y<-5){ p.y=mc.height+5; p.x=Math.random()*mc.width; }
-      mctx.save(); mctx.globalAlpha=p.alpha; mctx.shadowColor=p.color; mctx.shadowBlur=6;
-      mctx.fillStyle=p.color; mctx.beginPath(); mctx.arc(p.x,p.y,p.size,0,Math.PI*2); mctx.fill(); mctx.restore(); }
   })();
 })();
 
@@ -1184,7 +1272,7 @@ setHudVisible(false);
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
   --c:#00f5ff;--g:#39ff14;--r:#ff2244;--o:#ff7700;--p:#bf00ff;
-  --bg:#050a0f;--panel:rgba(0,15,28,0.94);--text:#c8f0ff;
+  --bg:#030810;--panel:rgba(0,15,28,0.94);--text:#c8f0ff;
 }
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Rajdhani',sans-serif;user-select:none;cursor:crosshair;}
 canvas{display:block;position:absolute;top:0;left:0;}
@@ -1241,8 +1329,10 @@ canvas{display:block;position:absolute;top:0;left:0;}
 #menu{position:absolute;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#000d1a 0%,#000508 100%);}
 #mc{position:absolute;inset:0;}
 .menu-wrap{position:relative;z-index:2;width:100%;max-width:480px;padding:0 24px;}
-.logo{font-family:'Orbitron',monospace;font-size:clamp(32px,6vw,68px);font-weight:900;letter-spacing:5px;color:#fff;text-shadow:0 0 30px var(--c),0 0 60px var(--c),0 0 100px rgba(0,245,255,.35);text-align:center;line-height:1;animation:logoPulse 3s infinite;}
-@keyframes logoPulse{0%,100%{text-shadow:0 0 30px var(--c),0 0 60px var(--c),0 0 100px rgba(0,245,255,.3);}50%{text-shadow:0 0 40px var(--c),0 0 80px var(--c),0 0 140px rgba(0,245,255,.5);}}
+.logo-wrap{text-align:center;margin-bottom:6px;}
+.logo{font-family:'Orbitron',monospace;font-size:clamp(30px,5.5vw,66px);font-weight:900;letter-spacing:6px;color:#fff;line-height:1;text-shadow:0 0 20px var(--c),0 0 50px var(--c),0 0 100px rgba(0,245,255,.3),0 0 200px rgba(0,245,255,.1);animation:logoPulse 3s ease-in-out infinite;}
+@keyframes logoPulse{0%,100%{text-shadow:0 0 20px var(--c),0 0 50px var(--c),0 0 100px rgba(0,245,255,.3);}50%{text-shadow:0 0 30px var(--c),0 0 70px var(--c),0 0 130px rgba(0,245,255,.45),0 0 250px rgba(0,245,255,.15);}}
+.logo-line{width:60%;height:1px;background:linear-gradient(90deg,transparent,var(--c),transparent);margin:8px auto;}
 .logo-sub{font-family:'Rajdhani';font-size:clamp(11px,1.8vw,16px);font-weight:600;color:var(--o);letter-spacing:7px;text-transform:uppercase;text-align:center;margin-bottom:42px;text-shadow:0 0 12px var(--o);}
 #panel-main{display:flex;flex-direction:column;gap:10px;align-items:center;}
 #panel-servers,#panel-create{display:none;flex-direction:column;gap:10px;}
@@ -1277,6 +1367,7 @@ canvas{display:block;position:absolute;top:0;left:0;}
 .text-input::placeholder{color:rgba(200,240,255,.3);}
 .controls-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;margin-top:20px;font-family:'Rajdhani';font-size:12px;color:rgba(200,240,255,.45);letter-spacing:1px;}
 .k{display:inline-block;background:rgba(0,245,255,.1);border:1px solid rgba(0,245,255,.25);border-radius:3px;padding:1px 6px;font-family:'Orbitron';font-size:9px;color:var(--c);margin-right:5px;}
+.menu-divider{width:100%;height:1px;background:linear-gradient(90deg,transparent,rgba(0,245,255,.12),transparent);margin:2px 0;}
 .firebase-warn{text-align:center;font-family:'Rajdhani';font-size:11px;color:rgba(255,170,0,.8);letter-spacing:1px;padding:8px 12px;background:rgba(255,119,0,.08);border:1px solid rgba(255,119,0,.2);border-radius:3px;margin-top:4px;line-height:1.5;}
 
 /* NICK OVERLAY */
@@ -1313,30 +1404,30 @@ canvas{display:block;position:absolute;top:0;left:0;}
   <div id="fps-counter">60 FPS</div>
   <div id="ping-display">-- ms</div>
   <div id="kills-display">
-    <div id="kills-label">ELIMINATIONS</div>
+    <div id="kills-label">O'LDIRISHLAR</div>
     <div id="kills-count">0</div>
   </div>
   <div id="crosshair"></div>
   <canvas id="hit-marker" width="24" height="24"></canvas>
   <div id="leaderboard">
-    <div id="lb-title">◆ LEADERBOARD</div>
+    <div id="lb-title">◆ REYTING</div>
     <div id="lb-list"></div>
   </div>
   <div id="health-bar-wrap">
-    <div id="health-label">HEALTH</div>
+    <div id="health-label">SALOMATLIK</div>
     <div id="health-bar"><div id="health-fill"></div></div>
     <div id="shield-bar"><div id="shield-fill"></div></div>
   </div>
   <div id="dash-bar-wrap">
-    <div id="dash-label">DASH COOLDOWN</div>
+    <div id="dash-label">YUGURISH KOOLDOWNI</div>
     <div id="dash-bar"><div id="dash-fill"></div></div>
   </div>
   <div id="ammo-display">
     <div id="ammo-current">30</div>
-    <div id="ammo-max">/ 30 MAG</div>
-    <div id="reload-msg">RELOADING...</div>
+    <div id="ammo-max">/ 30 O'Q</div>
+    <div id="reload-msg">QAYTA YUKLANMOQDA...</div>
   </div>
-  <div id="killscreen">ELIMINATED!</div>
+  <div id="killscreen">O'LDIRILDI!</div>
   <div id="settings-hud-btn" id="btn-settings-hud" style="pointer-events:all;cursor:pointer;">⚙</div>
 </div>
 
@@ -1345,57 +1436,58 @@ canvas{display:block;position:absolute;top:0;left:0;}
 
 <!-- RESPAWN OVERLAY -->
 <div id="respawn-overlay">
-  <h2>ELIMINATED</h2>
+  <h2>O'LDIRILDI</h2>
   <div id="respawn-count">5</div>
-  <div class="respawn-stats">Respawning...</div>
-  <button class="menu-btn small" id="btn-respawn-skip" style="width:200px;margin-bottom:16px;">RESPAWN NOW</button>
-  <button class="menu-btn small orange" id="btn-menu-leave" style="width:200px;">LEAVE MATCH</button>
+  <div class="respawn-stats">Qayta tug'ilish...<//div>
+  <button class="menu-btn small" id="btn-respawn-skip" style="width:200px;margin-bottom:16px;">HOZIR QAYTA TUG'ILISH</button>
+  <button class="menu-btn small orange" id="btn-menu-leave" style="width:200px;">O'YINDAN CHIQISH</button>
 </div>
 
 <!-- TOUCH ZONES -->
 <div id="joy-zone"></div>
 <div id="aim-zone"></div>
-<div class="touch-hint">◀ MOVE │ AIM ▶</div>
+<div class="touch-hint">◀ HARAKAT │ NISHON ▶</div>
 
 <!-- MENU -->
 <div id="menu">
   <canvas id="mc"></canvas>
   <div class="menu-wrap">
     <div class="logo">NEON SIEGE</div>
-    <div class="logo-sub">Box Fight Battle Royale · Online</div>
+    <div class="logo-sub">O'q urish va qurilish · Online</div>
 
     <!-- MAIN PANEL -->
     <div id="panel-main">
-      <button class="menu-btn green" id="btn-multiplayer">⚡ MULTIPLAYER</button>
-      <button class="menu-btn" id="btn-solo">▶ SOLO (vs BOTS)</button>
-      <button class="menu-btn small" id="btn-settings">⚙ SETTINGS</button>
+      <button class="menu-btn green" id="btn-multiplayer">⚡ KO'P O'YINCHI</button>
+      <div class="menu-divider"></div>
+      <button class="menu-btn" id="btn-solo">▶ YAKKAMA-YAKKA (BOTLAR BILAN)</button>
+      <button class="menu-btn small" id="btn-settings">⚙ SOZLAMALAR</button>
       <div class="controls-grid">
-        <div><span class="k">WASD</span>Move</div>
-        <div><span class="k">LMB</span>Shoot</div>
-        <div><span class="k">RMB</span>Build Wall</div>
-        <div><span class="k">R</span>Reload</div>
-        <div><span class="k">SPACE</span>Dash</div>
+        <div><span class="k">WASD</span>Harakat</div>
+        <div><span class="k">CHAP<br>SB</span>Otish</div>
+        <div><span class="k">O'NG<br>SB</span>Devor qurish</div>
+        <div><span class="k">R</span>Qayta yuklash</div>
+        <div><span class="k">BO'SH</span>Yugurish</div>
         <div><span class="k">SHIFT</span>Sprint</div>
       </div>
     </div>
 
     <!-- SERVERS PANEL -->
     <div id="panel-servers">
-      <div class="panel-title">◆ PUBLIC SERVERS</div>
-      <div id="server-list"><div class="sl-loading">Scanning servers...</div></div>
+      <div class="panel-title">◆ OMMAVIY SERVERLAR</div>
+      <div id="server-list"><div class="sl-loading">Serverlar qidirilmoqda...</div></div>
       <div class="row-btns">
-        <button class="menu-btn small" id="sl-refresh" style="flex:1;">↺ REFRESH</button>
-        <button class="menu-btn small green" id="btn-create" style="flex:1;">+ CREATE</button>
+        <button class="menu-btn small" id="sl-refresh" style="flex:1;">↺ YANGILASH</button>
+        <button class="menu-btn small green" id="btn-create" style="flex:1;">+ YARATISH</button>
       </div>
-      <button class="menu-btn small" id="btn-back" style="margin-top:4px;">← BACK</button>
+      <button class="menu-btn small" id="btn-back" style="margin-top:4px;">← ORQAGA</button>
     </div>
 
     <!-- CREATE ROOM PANEL -->
     <div id="panel-create">
-      <div class="panel-title">◆ CREATE SERVER</div>
-      <input class="text-input" id="room-name-input" placeholder="SERVER NAME" maxlength="24" style="margin-bottom:8px;">
-      <button class="menu-btn green" id="btn-create-confirm">⚡ CREATE & PLAY</button>
-      <button class="menu-btn small" id="btn-create-back" style="margin-top:4px;">← BACK</button>
+      <div class="panel-title">◆ SERVER YARATISH</div>
+      <input class="text-input" id="room-name-input" placeholder="SERVER NOMI" maxlength="24" style="margin-bottom:8px;">
+      <button class="menu-btn green" id="btn-create-confirm">⚡ YARATISH VA O'YNASH</button>
+      <button class="menu-btn small" id="btn-create-back" style="margin-top:4px;">← ORQAGA</button>
     </div>
   </div>
 </div>
@@ -1403,23 +1495,23 @@ canvas{display:block;position:absolute;top:0;left:0;}
 <!-- NICK OVERLAY -->
 <div id="nick-overlay">
   <div class="nick-box">
-    <h3>ENTER YOUR CALLSIGN</h3>
-    <input class="text-input" id="nick-input" placeholder="PLAYER" maxlength="12" autocomplete="off">
-    <button class="menu-btn green" id="nick-confirm">CONFIRM</button>
+    <h3>TAXALLUSINGIZNI KIRITING</h3>
+    <input class="text-input" id="nick-input" placeholder="O'YINCHI" maxlength="12" autocomplete="off">
+    <button class="menu-btn green" id="nick-confirm">TASDIQLASH</button>
   </div>
 </div>
 
 <!-- SETTINGS MODAL -->
 <div id="settings-modal">
   <div class="settings-box">
-    <h2>⚙ SETTINGS</h2>
-    <div class="setting-row"><span>Sensitivity</span><input type="range" id="sens-slider" min="0.5" max="3" step="0.1" value="1"></div>
-    <div class="setting-row"><span>Volume</span><input type="range" id="vol-slider" min="0" max="1" step="0.05" value="0.35"></div>
-    <div class="setting-row"><span>Bot Fill Count <span id="bot-count-label">6</span></span><input type="range" id="bot-slider" min="0" max="7" step="1" value="6"></div>
-    <div class="setting-row"><span>Screen Shake</span><input type="checkbox" id="shake-toggle" checked></div>
-    <button class="menu-btn small" id="btn-close-settings" style="margin-top:20px;">CLOSE</button>
+    <h2>⚙ SOZLAMALAR</h2>
+    <div class="setting-row"><span>Sezgirlik</span><input type="range" id="sens-slider" min="0.5" max="3" step="0.1" value="1"></div>
+    <div class="setting-row"><span>Ovoz</span><input type="range" id="vol-slider" min="0" max="1" step="0.05" value="0.35"></div>
+    <div class="setting-row"><span>Bot soni <span id="bot-count-label">6</span></span><input type="range" id="bot-slider" min="0" max="7" step="1" value="6"></div>
+    <div class="setting-row"><span>Ekran silkinishi</span><input type="checkbox" id="shake-toggle" checked></div>
+    <button class="menu-btn small" id="btn-close-settings" style="margin-top:20px;">YOPISH</button>
   </div>
 </div>
 
 </body>
-</html>
+  </html>
